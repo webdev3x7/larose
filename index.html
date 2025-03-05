@@ -28,44 +28,49 @@
         });
         let dataChannel;
 
-        localConnection.onicecandidate = e => {
-            if (e.candidate) return;
-            document.getElementById('offer').value = JSON.stringify(localConnection.localDescription);
-        };
-
-        localConnection.ondatachannel = e => {
-            dataChannel = e.channel;
+        // Setup connection for received messages
+        localConnection.ondatachannel = event => {
+            dataChannel = event.channel;
             setupDataChannel();
         };
 
+        // Function to create offer (User 1)
         function createOffer() {
             dataChannel = localConnection.createDataChannel("chat");
             setupDataChannel();
             localConnection.createOffer()
                 .then(offer => localConnection.setLocalDescription(offer))
-                .then(() => document.getElementById('offer').value = JSON.stringify(localConnection.localDescription));
+                .then(() => {
+                    document.getElementById('offer').value = JSON.stringify(localConnection.localDescription);
+                });
         }
 
+        // Function to create answer (User 2)
         function createAnswer() {
             let remoteOffer = JSON.parse(document.getElementById('offer').value);
             localConnection.setRemoteDescription(new RTCSessionDescription(remoteOffer))
                 .then(() => localConnection.createAnswer())
                 .then(answer => localConnection.setLocalDescription(answer))
-                .then(() => document.getElementById('answer').value = JSON.stringify(localConnection.localDescription));
+                .then(() => {
+                    document.getElementById('answer').value = JSON.stringify(localConnection.localDescription);
+                });
         }
 
+        // Function to add answer (User 1)
         function addAnswer() {
             let remoteAnswer = JSON.parse(document.getElementById('answer').value);
             localConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
         }
 
+        // Setup data channel for both users
         function setupDataChannel() {
-            dataChannel.onmessage = e => {
-                document.getElementById('messages').value += "Friend: " + e.data + "\n";
-            };
             dataChannel.onopen = () => console.log("Connection opened!");
+            dataChannel.onmessage = event => {
+                document.getElementById('messages').value += "Friend: " + event.data + "\n";
+            };
         }
 
+        // Send message
         function sendMessage() {
             let message = document.getElementById('message').value;
             dataChannel.send(message);
