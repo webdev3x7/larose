@@ -25,7 +25,7 @@
         let conn;
         const AES_KEY = CryptoJS.lib.WordArray.random(16).toString();
 
-        // Stronger TURN/STUN Servers for better connectivity
+        // Initialize PeerJS with a TURN/STUN server
         const peer = new Peer({
             debug: 2,
             config: {
@@ -44,15 +44,18 @@
             }
         });
 
+        // Show the generated Peer ID
         peer.on('open', id => {
             document.getElementById('peer-id').innerText = id;
         });
 
+        // When another user connects to you
         peer.on('connection', connection => {
             conn = connection;
             setupConnection();
         });
 
+        // When you connect to another user
         function connectToPeer() {
             const remoteId = document.getElementById('remote-id').value;
             if (!remoteId) {
@@ -64,6 +67,7 @@
             conn.on('error', err => alert("Connection error: " + err));
         }
 
+        // Setup two-way communication
         function setupConnection() {
             document.getElementById('chat').style.display = 'block';
 
@@ -77,8 +81,9 @@
             });
         }
 
+        // Send an encrypted message
         function sendMessage() {
-            if (!conn || conn.open === false) {
+            if (!conn || !conn.open) {
                 alert("Not connected! Try reconnecting.");
                 return;
             }
@@ -92,15 +97,18 @@
             document.getElementById('message').value = "";
         }
 
+        // Encrypt message
         function encryptMessage(message) {
             return CryptoJS.AES.encrypt(message, AES_KEY).toString();
         }
 
+        // Decrypt received message
         function decryptMessage(encryptedMessage) {
             const bytes = CryptoJS.AES.decrypt(encryptedMessage, AES_KEY);
             return bytes.toString(CryptoJS.enc.Utf8);
         }
 
+        // Display messages
         function displayMessage(text) {
             const messagesDiv = document.getElementById("messages");
             const messageDiv = document.createElement("p");
