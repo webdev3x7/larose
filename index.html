@@ -3,94 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC Secure P2P Chat</title>
+    <title>Secure WebSocket Chat</title>
 </head>
 <body>
-    <h2>🔒 Secure P2P Chat (WebRTC)</h2>
-    
+    <h2>🔒 Secure WebSocket Chat</h2>
     <textarea id="messages" rows="10" cols="50" readonly></textarea><br>
     
     <input type="text" id="message" placeholder="Type a message">
-    <button onclick="sendMessage()" id="sendBtn" disabled>Send</button>
-
-    <h3>Connection Setup</h3>
-    <textarea id="offer" placeholder="Paste offer here"></textarea>
-    <button onclick="createOffer()">Create Offer</button>
-    
-    <textarea id="answer" placeholder="Paste answer here"></textarea>
-    <button onclick="createAnswer()">Create Answer</button>
-    
-    <button onclick="addAnswer()">Add Answer</button>
+    <button onclick="sendMessage()">Send</button>
 
     <script>
-        let localConnection;
-        let dataChannel;
-        let isConnected = false;
+        const ws = new WebSocket("wss://relay.websocket.in/v3/your-unique-room-id?apiKey=free");
 
-        function setupConnection() {
-            localConnection = new RTCPeerConnection({
-                iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-            });
+        ws.onopen = () => {
+            document.getElementById('messages').value += "Connected to chat!\n";
+        };
 
-            localConnection.onicecandidate = event => {
-                if (!event.candidate) {
-                    document.getElementById('offer').value = JSON.stringify(localConnection.localDescription);
-                }
-            };
-
-            localConnection.ondatachannel = event => {
-                dataChannel = event.channel;
-                setupDataChannel();
-            };
-        }
-
-        function createOffer() {
-            setupConnection();
-            dataChannel = localConnection.createDataChannel("chat");
-            setupDataChannel();
-
-            localConnection.createOffer()
-                .then(offer => localConnection.setLocalDescription(offer))
-                .then(() => {
-                    document.getElementById('offer').value = JSON.stringify(localConnection.localDescription);
-                });
-        }
-
-        function createAnswer() {
-            setupConnection();
-            let remoteOffer = JSON.parse(document.getElementById('offer').value);
-            localConnection.setRemoteDescription(new RTCSessionDescription(remoteOffer))
-                .then(() => localConnection.createAnswer())
-                .then(answer => localConnection.setLocalDescription(answer))
-                .then(() => {
-                    document.getElementById('answer').value = JSON.stringify(localConnection.localDescription);
-                });
-        }
-
-        function addAnswer() {
-            let remoteAnswer = JSON.parse(document.getElementById('answer').value);
-            localConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
-        }
-
-        function setupDataChannel() {
-            dataChannel.onopen = () => {
-                isConnected = true;
-                document.getElementById('sendBtn').disabled = false;
-                console.log("Connection opened!");
-            };
-
-            dataChannel.onmessage = event => {
-                document.getElementById('messages').value += "Friend: " + event.data + "\n";
-            };
-        }
+        ws.onmessage = event => {
+            document.getElementById('messages').value += event.data + "\n";
+        };
 
         function sendMessage() {
-            if (!isConnected) {
-                alert("Connection not established yet!");
-                return;
-            }
             let message = document.getElementById('message').value;
-            dataChannel.send(message);
+            ws.send(message);
             document.getElementById('messages').value += "You: " + message + "\n";
             document.getElementById('message').value = "";
         }
