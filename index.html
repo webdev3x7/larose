@@ -11,7 +11,7 @@
     <textarea id="messages" rows="10" cols="50" readonly></textarea><br>
     
     <input type="text" id="message" placeholder="Type a message">
-    <button onclick="sendMessage()">Send</button>
+    <button onclick="sendMessage()" id="sendBtn" disabled>Send</button>
 
     <h3>Connection Setup</h3>
     <textarea id="offer" placeholder="Paste offer here"></textarea>
@@ -23,21 +23,32 @@
     <button onclick="addAnswer()">Add Answer</button>
 
     <script>
-        let localConnection = new RTCPeerConnection({
-            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-        });
+        let localConnection;
         let dataChannel;
+        let isConnected = false;
 
-        // Setup connection for received messages
-        localConnection.ondatachannel = event => {
-            dataChannel = event.channel;
-            setupDataChannel();
-        };
+        function setupConnection() {
+            localConnection = new RTCPeerConnection({
+                iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+            });
 
-        // Function to create offer (User 1)
+            localConnection.onicecandidate = event => {
+                if (!event.candidate) {
+                    document.getElementById('offer').value = JSON.stringify(localConnection.localDescription);
+                }
+            };
+
+            localConnection.ondatachannel = event => {
+                dataChannel = event.channel;
+                setupDataChannel();
+            };
+        }
+
         function createOffer() {
+            setupConnection();
             dataChannel = localConnection.createDataChannel("chat");
             setupDataChannel();
+
             localConnection.createOffer()
                 .then(offer => localConnection.setLocalDescription(offer))
                 .then(() => {
@@ -45,8 +56,8 @@
                 });
         }
 
-        // Function to create answer (User 2)
         function createAnswer() {
+            setupConnection();
             let remoteOffer = JSON.parse(document.getElementById('offer').value);
             localConnection.setRemoteDescription(new RTCSessionDescription(remoteOffer))
                 .then(() => localConnection.createAnswer())
@@ -56,22 +67,28 @@
                 });
         }
 
-        // Function to add answer (User 1)
         function addAnswer() {
             let remoteAnswer = JSON.parse(document.getElementById('answer').value);
             localConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
         }
 
-        // Setup data channel for both users
         function setupDataChannel() {
-            dataChannel.onopen = () => console.log("Connection opened!");
+            dataChannel.onopen = () => {
+                isConnected = true;
+                document.getElementById('sendBtn').disabled = false;
+                console.log("Connection opened!");
+            };
+
             dataChannel.onmessage = event => {
                 document.getElementById('messages').value += "Friend: " + event.data + "\n";
             };
         }
 
-        // Send message
         function sendMessage() {
+            if (!isConnected) {
+                alert("Connection not established yet!");
+                return;
+            }
             let message = document.getElementById('message').value;
             dataChannel.send(message);
             document.getElementById('messages').value += "You: " + message + "\n";
