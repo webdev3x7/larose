@@ -69,7 +69,7 @@
             conn.on('data', data => {
                 if (data.type === 'text') {
                     const decryptedMessage = decryptMessage(data.content);
-                    displayMessage("Friend: " + decryptedMessage);
+                    displayMessage("Friend: " + decryptedMessage, true);
                 } else if (data.type === 'file') {
                     receiveFile(data);
                 }
@@ -82,7 +82,7 @@
 
             const encryptedMessage = encryptMessage(message);
             conn.send({ type: 'text', content: encryptedMessage });
-            displayMessage("You: " + message);
+            displayMessage("You: " + message, false);
 
             document.getElementById('message').value = "";
         }
@@ -96,12 +96,35 @@
             return bytes.toString(CryptoJS.enc.Utf8);
         }
 
-        function displayMessage(text) {
+        function displayMessage(text, isFriend) {
             const messagesDiv = document.getElementById("messages");
             const messageDiv = document.createElement("p");
+
             messageDiv.innerText = text;
+
+            // Add Copy Button
+            if (isFriend) {
+                const copyBtn = document.createElement("button");
+                copyBtn.innerText = "📋 Copy";
+                copyBtn.style.marginLeft = "10px";
+                copyBtn.onclick = function () {
+                    copyToClipboard(text.replace("Friend: ", ""));
+                };
+                messageDiv.appendChild(copyBtn);
+            }
+
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function copyToClipboard(text) {
+            const textarea = document.createElement("textarea");
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textarea);
+            alert("Copied to clipboard!");
         }
 
         function sendFile() {
