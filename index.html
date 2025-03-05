@@ -19,17 +19,13 @@
         
         <input type="text" id="message" placeholder="Type a message">
         <button onclick="sendMessage()">Send</button>
-
-        <p><strong>Send a File:</strong></p>
-        <input type="file" id="fileInput">
-        <button onclick="sendFile()">Send File</button>
     </div>
 
     <script>
         let conn;
         const AES_KEY = CryptoJS.lib.WordArray.random(16).toString();
 
-        // Use a more reliable TURN/STUN server for better connectivity
+        // Stronger TURN/STUN Servers for better connectivity
         const peer = new Peer({
             debug: 2,
             config: {
@@ -72,11 +68,7 @@
             document.getElementById('chat').style.display = 'block';
 
             conn.on('data', data => {
-                if (data.type === 'text') {
-                    displayMessage("Friend: " + decryptMessage(data.content));
-                } else if (data.type === 'file') {
-                    receiveFile(data);
-                }
+                displayMessage("Friend: " + decryptMessage(data));
             });
 
             conn.on('close', () => {
@@ -94,7 +86,7 @@
             if (message === "") return;
 
             const encryptedMessage = encryptMessage(message);
-            conn.send({ type: 'text', content: encryptedMessage });
+            conn.send(encryptedMessage);
             displayMessage("You: " + message);
 
             document.getElementById('message').value = "";
@@ -113,39 +105,6 @@
             const messagesDiv = document.getElementById("messages");
             const messageDiv = document.createElement("p");
             messageDiv.innerText = text;
-            messagesDiv.appendChild(messageDiv);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-
-        function sendFile() {
-            if (!conn || conn.open === false) {
-                alert("Not connected! Try reconnecting.");
-                return;
-            }
-
-            const fileInput = document.getElementById("fileInput");
-            if (!fileInput.files.length) return;
-
-            const file = fileInput.files[0];
-            const reader = new FileReader();
-
-            reader.onload = function(event) {
-                conn.send({ type: 'file', name: file.name, content: event.target.result, mimeType: file.type });
-                displayMessage(`You sent: ${file.name}`);
-            };
-
-            reader.readAsDataURL(file);
-        }
-
-        function receiveFile(data) {
-            const fileLink = document.createElement("a");
-            fileLink.href = data.content;
-            fileLink.download = data.name;
-            fileLink.innerText = `Download: ${data.name}`;
-
-            const messagesDiv = document.getElementById("messages");
-            const messageDiv = document.createElement("p");
-            messageDiv.appendChild(fileLink);
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
