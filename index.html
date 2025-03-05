@@ -3,118 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure P2P Chat</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js"></script>
+    <title>WebRTC Secure P2P Chat</title>
 </head>
 <body>
-    <h2>🔒 Secure P2P Chat</h2>
-    <p>Your Peer ID: <span id="peer-id">Generating...</span></p>
-    <input type="text" id="remote-id" placeholder="Enter Peer ID to connect">
-    <button onclick="connectToPeer()">Connect</button>
+    <h2>🔒 Secure P2P Chat (WebRTC)</h2>
+    
+    <textarea id="messages" rows="10" cols="50" readonly></textarea><br>
+    
+    <input type="text" id="message" placeholder="Type a message">
+    <button onclick="sendMessage()">Send</button>
 
-    <div id="chat" style="display:none;">
-        <p>Connected! Start chatting.</p>
-        <div id="messages" style="border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto;"></div>
-        
-        <input type="text" id="message" placeholder="Type a message">
-        <button onclick="sendMessage()">Send</button>
-    </div>
+    <h3>Connection Setup</h3>
+    <textarea id="offer" placeholder="Paste offer here"></textarea>
+    <button onclick="createOffer()">Create Offer</button>
+    
+    <textarea id="answer" placeholder="Paste answer here"></textarea>
+    <button onclick="createAnswer()">Create Answer</button>
+    
+    <button onclick="addAnswer()">Add Answer</button>
 
     <script>
-        let conn;
-        const AES_KEY = CryptoJS.lib.WordArray.random(16).toString();
-
-        // Initialize PeerJS with a TURN/STUN server
-        const peer = new Peer({
-            debug: 2,
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:stun3.l.google.com:19302' },
-                    { urls: 'stun:stun4.l.google.com:19302' },
-                    {
-                        urls: 'turn:relay1.expressturn.com:3478',
-                        username: 'expressturn',
-                        credential: 'expressturn'
-                    }
-                ]
-            }
+        let localConnection = new RTCPeerConnection({
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
         });
+        let dataChannel;
 
-        // Show the generated Peer ID
-        peer.on('open', id => {
-            document.getElementById('peer-id').innerText = id;
-        });
+        localConnection.onicecandidate = e => {
+            if (e.candidate) return;
+            document.getElementById('offer').value = JSON.stringify(localConnection.localDescription);
+        };
 
-        // When another user connects to you
-        peer.on('connection', connection => {
-            conn = connection;
-            setupConnection();
-        });
+        localConnection.ondatachannel = e => {
+            dataChannel = e.channel;
+            setupDataChannel();
+        };
 
-        // When you connect to another user
-        function connectToPeer() {
-            const remoteId = document.getElementById('remote-id').value;
-            if (!remoteId) {
-                alert("Enter a valid Peer ID!");
-                return;
-            }
-            conn = peer.connect(remoteId);
-            conn.on('open', setupConnection);
-            conn.on('error', err => alert("Connection error: " + err));
+        function createOffer() {
+            dataChannel = localConnection.createDataChannel("chat");
+            setupDataChannel();
+            localConnection.createOffer()
+                .then(offer => localConnection.setLocalDescription(offer))
+                .then(() => document.getElementById('offer').value = JSON.stringify(localConnection.localDescription));
         }
 
-        // Setup two-way communication
-        function setupConnection() {
-            document.getElementById('chat').style.display = 'block';
-
-            conn.on('data', data => {
-                displayMessage("Friend: " + decryptMessage(data));
-            });
-
-            conn.on('close', () => {
-                alert("Connection closed!");
-                document.getElementById('chat').style.display = 'none';
-            });
+        function createAnswer() {
+            let remoteOffer = JSON.parse(document.getElementById('offer').value);
+            localConnection.setRemoteDescription(new RTCSessionDescription(remoteOffer))
+                .then(() => localConnection.createAnswer())
+                .then(answer => localConnection.setLocalDescription(answer))
+                .then(() => document.getElementById('answer').value = JSON.stringify(localConnection.localDescription));
         }
 
-        // Send an encrypted message
+        function addAnswer() {
+            let remoteAnswer = JSON.parse(document.getElementById('answer').value);
+            localConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
+        }
+
+        function setupDataChannel() {
+            dataChannel.onmessage = e => {
+                document.getElementById('messages').value += "Friend: " + e.data + "\n";
+            };
+            dataChannel.onopen = () => console.log("Connection opened!");
+        }
+
         function sendMessage() {
-            if (!conn || !conn.open) {
-                alert("Not connected! Try reconnecting.");
-                return;
-            }
-            const message = document.getElementById('message').value.trim();
-            if (message === "") return;
-
-            const encryptedMessage = encryptMessage(message);
-            conn.send(encryptedMessage);
-            displayMessage("You: " + message);
-
+            let message = document.getElementById('message').value;
+            dataChannel.send(message);
+            document.getElementById('messages').value += "You: " + message + "\n";
             document.getElementById('message').value = "";
-        }
-
-        // Encrypt message
-        function encryptMessage(message) {
-            return CryptoJS.AES.encrypt(message, AES_KEY).toString();
-        }
-
-        // Decrypt received message
-        function decryptMessage(encryptedMessage) {
-            const bytes = CryptoJS.AES.decrypt(encryptedMessage, AES_KEY);
-            return bytes.toString(CryptoJS.enc.Utf8);
-        }
-
-        // Display messages
-        function displayMessage(text) {
-            const messagesDiv = document.getElementById("messages");
-            const messageDiv = document.createElement("p");
-            messageDiv.innerText = text;
-            messagesDiv.appendChild(messageDiv);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
     </script>
 </body>
