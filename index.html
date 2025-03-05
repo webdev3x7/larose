@@ -29,19 +29,20 @@
         let conn;
         const AES_KEY = CryptoJS.lib.WordArray.random(16).toString();
 
-        // Initialize PeerJS with TURN & STUN servers
+        // Use a more reliable TURN/STUN server for better connectivity
         const peer = new Peer({
+            debug: 2,
             config: {
-                'iceServers': [
+                iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
                     { urls: 'stun:stun2.l.google.com:19302' },
                     { urls: 'stun:stun3.l.google.com:19302' },
                     { urls: 'stun:stun4.l.google.com:19302' },
                     {
-                        urls: 'turn:openrelay.metered.ca:80',
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
+                        urls: 'turn:relay1.expressturn.com:3478',
+                        username: 'expressturn',
+                        credential: 'expressturn'
                     }
                 ]
             }
@@ -64,6 +65,7 @@
             }
             conn = peer.connect(remoteId);
             conn.on('open', setupConnection);
+            conn.on('error', err => alert("Connection error: " + err));
         }
 
         function setupConnection() {
@@ -76,9 +78,18 @@
                     receiveFile(data);
                 }
             });
+
+            conn.on('close', () => {
+                alert("Connection closed!");
+                document.getElementById('chat').style.display = 'none';
+            });
         }
 
         function sendMessage() {
+            if (!conn || conn.open === false) {
+                alert("Not connected! Try reconnecting.");
+                return;
+            }
             const message = document.getElementById('message').value.trim();
             if (message === "") return;
 
@@ -107,6 +118,11 @@
         }
 
         function sendFile() {
+            if (!conn || conn.open === false) {
+                alert("Not connected! Try reconnecting.");
+                return;
+            }
+
             const fileInput = document.getElementById("fileInput");
             if (!fileInput.files.length) return;
 
