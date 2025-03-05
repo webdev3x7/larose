@@ -3,32 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure WebSocket Chat</title>
+    <title>Simple GitHub Chat</title>
 </head>
 <body>
-    <h2>🔒 Secure WebSocket Chat</h2>
+    <h2>💬 GitHub Pages Chat</h2>
     <textarea id="messages" rows="10" cols="50" readonly></textarea><br>
-    
+    <input type="text" id="username" placeholder="Enter your name"><br>
     <input type="text" id="message" placeholder="Type a message">
     <button onclick="sendMessage()">Send</button>
 
     <script>
-        const ws = new WebSocket("wss://relay.websocket.in/v3/your-unique-room-id?apiKey=free");
+        const apiUrl = "https://api.jsonbin.io/v3/b/your-bin-id/latest"; // Replace with your JSONBin ID
+        const apiKey = "your-api-key"; // Replace with your JSONBin API key
 
-        ws.onopen = () => {
-            document.getElementById('messages').value += "Connected to chat!\n";
-        };
-
-        ws.onmessage = event => {
-            document.getElementById('messages').value += event.data + "\n";
-        };
+        function loadMessages() {
+            fetch(apiUrl, { headers: { "X-Master-Key": apiKey } })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('messages').value = data.record.messages.join("\n");
+                });
+        }
 
         function sendMessage() {
+            let username = document.getElementById('username').value || "Anonymous";
             let message = document.getElementById('message').value;
-            ws.send(message);
-            document.getElementById('messages').value += "You: " + message + "\n";
-            document.getElementById('message').value = "";
+            if (message.trim() === "") return;
+
+            fetch(apiUrl, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Master-Key": apiKey
+                },
+                body: JSON.stringify({ messages: [`${username}: ${message}`] })
+            }).then(() => {
+                document.getElementById('message').value = "";
+                loadMessages();
+            });
         }
+
+        setInterval(loadMessages, 2000); // Auto-refresh messages every 2 seconds
     </script>
 </body>
 </html>
